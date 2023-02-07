@@ -85,18 +85,35 @@ if __name__ == "__main__":
 # %%
     load = input('Load previous loaded network? (y/n): ')
     if load.lower()[0] == 'n':
-        path = input('Enter file name to save as: ') + '.sav'
+
+        dataset = int(input('Enter dataset/network path: \n\t (1) BlogCatalog \n\t (2) Flickr \n\t (3) ACM\n'))
+
+        if dataset == 1: 
+            data_path = 'datasets/blogcatalog.mat'
+            dataset = 'bc'
+        elif dataset == 2: 
+            data_path = 'datasets/Flickr.mat'
+            dataset = 'flr'
+        elif dataset == 3: 
+            data_path = 'datasets/ACM.mat'
+            dataset = 'acm'
         
-        G, ego_gs, roots, labels = load_network(input('Enter dataset/network path: '))
+        G, ego_gs, roots, labels = load_network(data_path)
+
+        path = f'{dataset}_data.sav'
 
         saved_model = open(path, 'wb')
         pickle.dump((G, ego_gs, roots, labels), saved_model)
         saved_model.close()
+
     else:
-        with open(input('Enter file path: '), 'rb') as f:
-            G, ego_gs, roots, labels = pickle.load(f)
-            f.close()
-            roots = [int(r) for r in roots]
+        data_path = input('Enter file path: ')
+        saved_model = open(data_path , 'rb')
+        G, ego_gs, roots, labels = pickle.load(saved_model)
+        saved_model.close()
+        roots = [int(r) for r in roots]
+        dataset = data_path.split('_')[0]
+        print()
 
 # %%
     print(f'Using {len(ego_gs)} egonets')
@@ -104,65 +121,81 @@ if __name__ == "__main__":
 # %% [markdown]
 # ### Sparse Tensor Construction
 
+    load = input('Load previous constructed tensor? (y/n): ')
+
+    if load.lower()[0] == 'n':
+
     # %%
-    N = G.number_of_nodes()
+        N = G.number_of_nodes()
 
-    # # %%
-    # indices = []
-    # padded_gs = []
+        # %%
+        indices = []
+        padded_gs = []
 
-    # undirected = not nx.is_directed(G)
+        undirected = not nx.is_directed(G)
 
-    # for i, g in enumerate(tqdm(ego_gs)):
-    #     ego_adj_list = dict(g.adjacency())
-        
-    #     result = np.zeros((N, N))
-    #     for node in ego_adj_list.keys():    
-    #         for neighbor in ego_adj_list[node].keys():
+        for i, g in enumerate(tqdm(ego_gs)):
+            ego_adj_list = dict(g.adjacency())
+            
+            result = np.zeros((N, N))
+            for node in ego_adj_list.keys():    
+                for neighbor in ego_adj_list[node].keys():
 
-    #             result[node][neighbor] = 1
-    #             if undirected:
-    #                 result[neighbor][node] = 1
-    #             indices.append([i, node, neighbor])
-    #             indices.append([i, neighbor, node])
-                
-    #     padded_gs.append(result)
-
-    values, indices = [], []
-    padded_gs = []
-
-    undirected = not nx.is_directed(G)
-
-    for i, g in enumerate(tqdm(ego_gs)):
-        ego_adj_list = dict(g.adjacency())
-        
-        result = np.zeros((N, N))
-        for node in ego_adj_list.keys():    
-            for neighbor in ego_adj_list[node].keys():
-
-                result[node][neighbor] = 1
-                if undirected:
-                    result[neighbor][node] = 1
+                    result[node][neighbor] = 1
+                    if undirected:
+                        result[neighbor][node] = 1
                     indices.append([i, node, neighbor])
                     indices.append([i, neighbor, node])
-                
-        norm = np.linalg.norm(result, ord='fro')
-        values.append((g.number_of_edges(), norm))
-        padded_gs.append(result * (1/norm))
+                    
+            padded_gs.append(result)
 
-# %%
-    i = torch.tensor(list(zip(*indices)))
-    # values = torch.ones(len(indices))
+        # values, indices = [], []
+        # padded_gs = []
 
-    cube_values = []
-    for num_edges, norm in values:
-        norm_value = 1/norm
-        for _ in range(num_edges):
-            cube_values.append(norm_value)
-    ten_values = torch.tensor(cube_values)
+        # undirected = not nx.is_directed(G)
 
+        # for i, g in enumerate(tqdm(ego_gs)):
+        #     ego_adj_list = dict(g.adjacency())
+            
+        #     result = np.zeros((N, N))
+        #     for node in ego_adj_list.keys():    
+        #         for neighbor in ego_adj_list[node].keys():
 
-    cube = sparse.COO(i, data=ten_values)
+        #             result[node][neighbor] = 1
+        #             if undirected:
+        #                 result[neighbor][node] = 1
+        #                 indices.append([i, node, neighbor])
+        #                 indices.append([i, neighbor, node])
+                    
+        #     norm = np.linalg.norm(result, ord='fro')
+        #     values.append((g.number_of_edges(), norm))
+        #     padded_gs.append(result * (1/norm))
+
+    # %%
+        i = torch.tensor(list(zip(*indices)))
+        values = torch.ones(len(indices))
+
+        cube = sparse.COO(i, data=values)
+
+        # cube_values = []
+        # for num_edges, norm in values:
+        #     norm_value = 1/norm
+        #     for _ in range(num_edges):
+        #         cube_values.append(norm_value)
+        # ten_values = torch.tensor(cube_values)
+        # cube = sparse.COO(i, data=ten_values)
+
+        path = f'{dataset}_tensor.sav'
+
+        saved_tensor = open(path, 'wb')
+        pickle.dump(cube, saved_tensor)
+        saved_tensor.close()
+
+    else:
+        data_path = input('Enter file path: ')
+        saved_tensor = open(data_path , 'rb')
+        cube = pickle.load(saved_tensor)
+        saved_tensor.close()
 
 # %% [markdown]
 # ### Tensor Decomposition + Reconstruction Error
@@ -188,8 +221,11 @@ if __name__ == "__main__":
                 print('Invalid Input!')
                 decomp = input('Select Tucker (1) or CP (2) Decomposition: ')
 
+            decomp_alg = 'tkd' if decomp == '1' else 'cpd'    
+
             if load.lower()[0] == 'n':
-                path = input('Enter file name to save factors as: ')
+                path = f'{dataset}_{decomp_alg}_r{rank}.sav'
+                # path = input('Enter file name to save factors as: ')
                 if decomp == '1':
                     print('Tucker Decomposition...')
                     _, factors = decomposition.tucker(cube, rank=rank, init='random')
@@ -212,20 +248,32 @@ if __name__ == "__main__":
             elif decomp == '2':
                 A, B, C = A.todense(), B.todense(), C.todense()
                 
+            # path = input('Enter file name to save reconstruction errors: ')
+            path = f'{dataset}_{decomp_alg}_r{rank}_errors.sav'
 
             errors = []
             print("Calculating Reconstruction Errors...")
             for gs in tqdm(padded_gs):
                 if decomp == '1':
-                    gs_p = (A @ ((A.T @ gs) @ B) @ B.T)
+                    # projection
+                    gs_p = ((A.T @ gs) @ B)
+                    # reconstruction
+                    gs_r = (A @ gs_p @ B.T)
                 elif decomp == '2':
-                    gs_p = (A @ ((np.linalg.pinv(A) @ gs) @ B) @ np.linalg.pinv(B))
+                    # projection
+                    gs_p = ((np.linalg.pinv(A) @ gs) @ B)
+                    # reconstruction
+                    gs_r = (A @ gs_p @ np.linalg.pinv(B))
                 d = np.linalg.norm(gs - gs_p, ord='fro')
-                errors.append(d)
+
+                # # absolute error
+                # errors.append(d / np.linalg.norm())
+
+                # relative error
+                errors.append(d / np.linalg.norm(gs, ord='fro'))
 
             errors = np.array(errors).reshape(-1, 1)
 
-            path = input('Enter file name to save reconstruction errors: ')
             saved_model = open(path, 'wb')
             pickle.dump(errors, saved_model)
             saved_model.close()
