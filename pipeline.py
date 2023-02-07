@@ -107,13 +107,12 @@ if __name__ == "__main__":
         saved_model.close()
 
     else:
-        data_path = input('Enter file path: ')
+        data_path = input('Enter file path for network: ')
         saved_model = open(data_path , 'rb')
         G, ego_gs, roots, labels = pickle.load(saved_model)
         saved_model.close()
         roots = [int(r) for r in roots]
         dataset = data_path.split('_')[0]
-        print()
 
 # %%
     print(f'Using {len(ego_gs)} egonets')
@@ -121,93 +120,48 @@ if __name__ == "__main__":
 # %% [markdown]
 # ### Sparse Tensor Construction
 
-    load = input('Load previous constructed tensor? (y/n): ')
-
-    if load.lower()[0] == 'n':
+    # %%
+    N = G.number_of_nodes()
 
     # %%
-        N = G.number_of_nodes()
+    indices = []
+    padded_gs = []
 
-        # %%
-        indices = []
-        padded_gs = []
+    undirected = not nx.is_directed(G)
 
-        undirected = not nx.is_directed(G)
+    for i, g in enumerate(tqdm(ego_gs)):
+        ego_adj_list = dict(g.adjacency())
+        
+        result = np.zeros((N, N))
+        for node in ego_adj_list.keys():    
+            for neighbor in ego_adj_list[node].keys():
 
-        for i, g in enumerate(tqdm(ego_gs)):
-            ego_adj_list = dict(g.adjacency())
-            
-            result = np.zeros((N, N))
-            for node in ego_adj_list.keys():    
-                for neighbor in ego_adj_list[node].keys():
+                result[node][neighbor] = 1
+                if undirected:
+                    result[neighbor][node] = 1
+                indices.append([i, node, neighbor])
+                indices.append([i, neighbor, node])
+                
+        padded_gs.append(result)
 
-                    result[node][neighbor] = 1
-                    if undirected:
-                        result[neighbor][node] = 1
-                    indices.append([i, node, neighbor])
-                    indices.append([i, neighbor, node])
-                    
-            padded_gs.append(result)
+# %%
+    print('\nConstructing Tensor...')
+    i = torch.tensor(list(zip(*indices)))
+    values = torch.ones(len(indices))
 
-        # values, indices = [], []
-        # padded_gs = []
-
-        # undirected = not nx.is_directed(G)
-
-        # for i, g in enumerate(tqdm(ego_gs)):
-        #     ego_adj_list = dict(g.adjacency())
-            
-        #     result = np.zeros((N, N))
-        #     for node in ego_adj_list.keys():    
-        #         for neighbor in ego_adj_list[node].keys():
-
-        #             result[node][neighbor] = 1
-        #             if undirected:
-        #                 result[neighbor][node] = 1
-        #                 indices.append([i, node, neighbor])
-        #                 indices.append([i, neighbor, node])
-                    
-        #     norm = np.linalg.norm(result, ord='fro')
-        #     values.append((g.number_of_edges(), norm))
-        #     padded_gs.append(result * (1/norm))
-
-    # %%
-        i = torch.tensor(list(zip(*indices)))
-        values = torch.ones(len(indices))
-
-        cube = sparse.COO(i, data=values)
-
-        # cube_values = []
-        # for num_edges, norm in values:
-        #     norm_value = 1/norm
-        #     for _ in range(num_edges):
-        #         cube_values.append(norm_value)
-        # ten_values = torch.tensor(cube_values)
-        # cube = sparse.COO(i, data=ten_values)
-
-        path = f'{dataset}_tensor.sav'
-
-        saved_tensor = open(path, 'wb')
-        pickle.dump(cube, saved_tensor)
-        saved_tensor.close()
-
-    else:
-        data_path = input('Enter file path: ')
-        saved_tensor = open(data_path , 'rb')
-        cube = pickle.load(saved_tensor)
-        saved_tensor.close()
+    cube = sparse.COO(i, data=values)
 
 # %% [markdown]
 # ### Tensor Decomposition + Reconstruction Error
 
 # %%
-    ranks = [int(r) for r in input('Enter ranks, space separated: ').split()]
+    ranks = [int(r) for r in input('\nEnter ranks, space separated: ').split()]
 
 # %%
     scores = []
     for rank in ranks:
         print(f'\nUSING RANK {rank}\n')
-        load = input('Load Reconstruction Errors? (y/n): ')
+        load = input('\nLoad Reconstruction Errors? (y/n): ')
         # not loading previously calculated reconstruction errors
         if load.lower()[0] == 'n':
 
@@ -264,7 +218,7 @@ if __name__ == "__main__":
                     gs_p = ((np.linalg.pinv(A) @ gs) @ B)
                     # reconstruction
                     gs_r = (A @ gs_p @ np.linalg.pinv(B))
-                d = np.linalg.norm(gs - gs_p, ord='fro')
+                d = np.linalg.norm(gs - gs_r, ord='fro')
 
                 # # absolute error
                 # errors.append(d / np.linalg.norm())
