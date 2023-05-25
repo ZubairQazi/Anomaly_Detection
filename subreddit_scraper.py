@@ -62,7 +62,6 @@ filtered_posts = [post for post in top_posts if post.score > 1000 \
 
 print(f'\nRetrieving top {k} comments from each post...')
 
-# Retrieve the top 5 comments for each post
 data = []
 
 for post in filtered_posts:
@@ -101,14 +100,14 @@ for post in filtered_posts:
     data.append(post_data)
 
 # create dataset folder if it doesn't exist
-if not os.path.exists('reddit_datasets'):
-    os.makedirs('reddit_datasets')
+if not os.path.exists('datasets/reddit_datasets'):
+    os.makedirs('datasets/reddit_datasets')
 
 print('\nWriting data to compressed file...')
 
-# Compress the data and store it in a file
+# Compress the json data and store it in a file
 compressed_data = zstd.compress(json.dumps(data).encode('utf-8'))
 
 subreddit_name_string = '+'.join(subreddit_names)
-with open(f'reddit_datasets/{subreddit_name_string}_{date_obj.date()}_top-{k}-comments.zst', 'wb') as f:
+with open(f'datasets/reddit_datasets/{subreddit_name_string}_{date_obj.date()}_top-{k}-comments_json.zst', 'wb') as f:
     f.write(compressed_data)
