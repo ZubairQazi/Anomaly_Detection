@@ -21,140 +21,35 @@ import pickle
 
 from tensorly.decomposition import tucker, constrained_parafac
 
-from sklearn.cluster import KMeans, MiniBatchKMeans
+# from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.metrics import f1_score, classification_report, roc_auc_score
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 
-from scipy.sparse import csr_matrix, issparse
-
-from SSLH_inference import *
-from SSLH_utils import *
+# from scipy.sparse import csr_matrix, issparse
 
 from tensorly.contrib.sparse import decomposition
 import sparse
 
 from pyod.models.lof import LOF
 
-# %% [markdown]
-# ### Load Network & Ego Nets
-
-# %%
-def load_network(path):
-    
-    try:
-        data = scipy.io.loadmat(path)
-    except:
-        print('Invalid data path')
-
-    G = nx.from_scipy_sparse_array(data["Network"])
-    # nx.set_node_attributes(G, bc_data["Attributes"], 'Attributes')
-    print(str(G))
-
-    # convert list of lists to list
-    labels = [j for i in data["Label"] for j in i]
-
-    # Add labels to each node
-    for i in range(len(G.nodes)):
-        G.nodes[i]['Anomaly'] = labels[i]
-
-    is_undirected = not nx.is_directed(G)
-
-    # G = max((G.subgraph(c) for c in nx.connected_components(G)), key=len)
-    # G = nx.convert_node_labels_to_integers(G)
-
-    ego_gs, roots = [], []
-
-    # if 0-degree node(s), remove label(s) from consideration
-    if len(labels) != G.number_of_nodes():
-        labels = list(nx.get_node_attributes(G, 'Anomaly').values())
-
-    for i in tqdm(range(G.number_of_nodes())):
-        roots.append(G.nodes[i]['Anomaly'])
-        G_ego = nx.ego_graph(G, i, radius=1, undirected=is_undirected)
-        if G_ego.number_of_nodes() >= 2:
-            ego_gs.append(G_ego)
-
-    return G, ego_gs, roots, labels
-
+from utils.graph_tensor import build_graph_tensor
+from utils.text_tensor import build_text_tensor
 
 if __name__ == "__main__":
    # stuff only to run when not called via 'import' here
 
-# %%
-    load = input('Load previous loaded network? (y/n): ')
-    if load.lower()[0] == 'n':
+    ## Load Tensor for Decomposition
+    tensor_option = int(input('Select an option: \n\t (1) Graph Tensor \n\t (2) Text Tensor\n'))
 
-        dataset = int(input('Enter dataset/network path: \n\t (1) BlogCatalog \n\t (2) Flickr \n\t (3) ACM\n'))
+    if tensor_option == 1:
+        tensor, padded_slices, labels, dataset = build_graph_tensor()
+        ten_type = 'graph-ten'
+    elif tensor_option == 2:
+        tensor, labels, dataset = build_text_tensor()
+        ten_type = 'text-ten'
 
-        if dataset == 1: 
-            data_path = 'datasets/blogcatalog.mat'
-            dataset = 'bc'
-        elif dataset == 2: 
-            data_path = 'datasets/Flickr.mat'
-            dataset = 'flr'
-        elif dataset == 3: 
-            data_path = 'datasets/ACM.mat'
-            dataset = 'acm'
-        
-        G, ego_gs, roots, labels = load_network(data_path)
-
-        path = f'{dataset}_data.sav'
-
-        saved_model = open(path, 'wb')
-        pickle.dump((G, ego_gs, roots, labels), saved_model)
-        saved_model.close()
-
-    else:
-        data_path = input('Enter file path for network: ')
-        saved_model = open(data_path , 'rb')
-        G, ego_gs, roots, labels = pickle.load(saved_model)
-        saved_model.close()
-        roots = [int(r) for r in roots]
-        dataset = data_path.split('_')[0]
-
-# %%
-    print(f'Using {len(ego_gs)} egonets')
-
-# %% [markdown]
-# ### Sparse Tensor Construction
-
-    # %%
-    N = G.number_of_nodes()
-
-    # %%
-    indices = []
-    padded_gs = []
-
-    undirected = not nx.is_directed(G)
-
-    for i, g in enumerate(tqdm(ego_gs)):
-        ego_adj_list = dict(g.adjacency())
-        
-        result = np.zeros((N, N))
-        for node in ego_adj_list.keys():    
-            for neighbor in ego_adj_list[node].keys():
-
-                result[node][neighbor] = 1
-                if undirected:
-                    result[neighbor][node] = 1
-                indices.append([i, node, neighbor])
-                indices.append([i, neighbor, node])
-                
-        padded_gs.append(result)
-
-# %%
-    print('\nConstructing Tensor...')
-    i = torch.tensor(list(zip(*indices)))
-    values = torch.ones(len(indices))
-
-    cube = sparse.COO(i, data=values)
-
-# %% [markdown]
-# ### Tensor Decomposition + Reconstruction Error
-
-# %%
     ranks = [int(r) for r in input('\nEnter ranks, space separated: ').split()]
 
 # %%
@@ -182,10 +77,10 @@ if __name__ == "__main__":
                 # path = input('Enter file name to save factors as: ')
                 if decomp == '1':
                     print('Tucker Decomposition...')
-                    _, factors = decomposition.tucker(cube, rank=rank, init='random')
+                    _, factors = decomposition.tucker(tensor, rank=rank, init='random')
                 elif decomp == '2':
                     print('Parafac Decomposition...')
-                    _, factors = decomposition.parafac(cube, rank=rank, init='random')
+                    _, factors = decomposition.parafac(tensor, rank=rank, init='random')
                 print(f"Factors Saved to {path}\n")
                 saved_model = open(path, 'wb')
                 pickle.dump(factors, saved_model)
@@ -203,11 +98,11 @@ if __name__ == "__main__":
                 A, B, C = A.todense(), B.todense(), C.todense()
                 
             # path = input('Enter file name to save reconstruction errors: ')
-            path = f'{dataset}_{decomp_alg}_r{rank}_errors.sav'
+            path = f'{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
 
             errors = []
             print("Calculating Reconstruction Errors...")
-            for gs in tqdm(padded_gs):
+            for gs in tqdm(padded_slices):
                 if decomp == '1':
                     # projection
                     gs_p = ((A.T @ gs) @ B)
