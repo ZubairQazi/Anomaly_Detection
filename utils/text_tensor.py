@@ -60,10 +60,8 @@ def load_dataset(path):
     # Initialize an empty dictionary to store term indices
     term_indices = {}
 
-    for item in data:
-        # terms = item.split()
-        # term_counts.update(terms)
-        for term in item:
+    for document in data:
+        for term in document.split():
             if term not in term_indices:
                 # Assign the next available index to the term
                 term_indices[term] = len(term_indices)
@@ -77,35 +75,43 @@ def load_dataset(path):
 def build_text_tensor(window_size=5):
 
     # Get data and labels from load_dataset()
-    data, labels, N, term_indices = load_dataset(input('Enter JSON data path: '))
+    data, labels, total_num_terms, term_indices = load_dataset(input('Enter JSON data path: '))
 
     indices = []
     padded_slices = []
 
-    # Loop over each item in the data
-    for i, item in enumerate(data):
+    # Loop over each document in the data
+    for doc_idx, document in enumerate(data):
 
-        terms = item.split()
+        terms = document.split()
 
        # Loop over each of the terms
-        for i, term1 in enumerate(terms):
+        for term_idx, term1 in enumerate(terms):
 
-            slice = np.zeros((N, N))
+            slice = np.zeros((total_num_terms, total_num_terms))
             # Loop over terms within window from i
-            for j, term2 in enumerate(terms[i + 1: i + window_size]):
+            for term2 in terms[term_idx + 1: term_idx + window_size]:
 
                 # Append indices of co-occurrence terms
-                indices.append([i, term_indices[term1], term_indices[term2]])
-                indices.append([i, term_indices[term2], term_indices[term1]])
+                indices.append([doc_idx, term_indices[term1], term_indices[term2]])
+                indices.append([doc_idx, term_indices[term2], term_indices[term1]])
 
                 slice[term_indices[term1], term_indices[term2]] += 1
                 slice[term_indices[term2], term_indices[term1]] += 1
             
-            padded_slices.apend(slice)
+        padded_slices.append(slice)
 
     i = torch.tensor(list(zip(*indices)))
     values = torch.ones(len(indices))
 
     tensor = sparse.COO(i, data=values)
 
-    return tensor, padded_slices, labels
+    return tensor, padded_slices, labels, 'reddit'
+
+if __name__ == '__main__':
+
+    tensor, slices, labels = build_text_tensor()
+
+    print('Tensor Shape:', tensor.shape)
+    print('Slices Shape:', f'({len(slices)}, {slices[0].shape[0]}, {slices[0].shape[1]})')
+    print('Labels Shape:', len(labels))

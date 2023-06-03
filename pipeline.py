@@ -47,11 +47,11 @@ if __name__ == "__main__":
         tensor, padded_slices, labels, dataset = build_graph_tensor()
         ten_type = 'graph-ten'
     elif tensor_option == 2:
-        tensor, labels, dataset = build_text_tensor()
+        tensor, padded_slices, labels, dataset = build_text_tensor()
         ten_type = 'text-ten'
 
     ranks = [int(r) for r in input('\nEnter ranks, space separated: ').split()]
-
+    
 # %%
     scores = []
     for rank in ranks:
