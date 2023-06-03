@@ -10,6 +10,7 @@ import pickle
 from tensorly.contrib.sparse import decomposition
 import sparse
 
+
 def load_network(path):
     
     try:
@@ -47,6 +48,7 @@ def load_network(path):
 
     return G, ego_gs, roots, labels
 
+
 def load_network_menu():
     load = input('Load previous loaded network? (y/n): ')
     if load.lower()[0] == 'n':
@@ -81,12 +83,10 @@ def load_network_menu():
 
     return G, ego_gs, roots, labels, dataset
 
-# %%
-    print(f'Using {len(ego_gs)} egonets')
 
 def build_graph_tensor():
 
-    G, ego_gs, roots, labels, dataset = load_network_menu()
+    G, ego_gs, _, labels, dataset = load_network_menu()
 
     N = G.number_of_nodes()
 

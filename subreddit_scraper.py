@@ -6,6 +6,12 @@ import os
 
 import openai
 
+import nltk
+from nltk.tokenize import sent_tokenize
+nltk.download('punkt')
+
+import string
+
 # Gather credentials from config
 with open('config.json') as f:
     config = json.load(f)
@@ -73,17 +79,40 @@ for post in filtered_posts:
     }
 
     # Generate response using GPT-3.5 API
-    prompt = f'Post: {post.title}\nResponse:'
-    response = openai.Completion.create(
-        engine='text-davinci-003',
-        prompt=prompt,
-        max_tokens=50,
-        n=1,
-        stop=None,
-        temperature=0.7
+    
+    # prompt = f'Post: {post.title}\nResponse:'
+    # response = openai.Completion.create(
+    #     engine='text-davinci-003',
+    #     prompt=prompt,
+    #     max_tokens=50,
+    #     temperature=0.7
+    # )
+    # # Get top ranked output message
+    # generated_response = response.choices[0].text.strip()
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": f"You are a frequent user of the subreddits {' '.join(subreddit_names)}. Answer anything relevant."},
+            {"role": "user", "content": post.title}
+        ], 
+        temperature=0.7, 
+        max_tokens=100
     )
-    generated_response = response.choices[0].text.strip()
-    post_data['gpt'] = generated_response
+    # Get top ranked output message
+    generated_response = response.choices[0].message.content
+
+    sentences = sent_tokenize(generated_response)
+    
+    # Filter out incomplete sentences
+    # complete_sentences = [sentence for sentence in sentences if sentence.endswith('.')]
+    complete_sentences = []
+    for sentence in sentences:
+        if sentence[-1] in string.punctuation:
+            complete_sentences.append(sentence)
+
+    post_data['gpt'] = ' '.join(complete_sentences)
+
 
     post.comments.replace_more(limit=0)
     comments = post.comments.list()
