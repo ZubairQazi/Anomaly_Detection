@@ -12,6 +12,8 @@ nltk.download('punkt')
 
 import string
 
+from langdetect import detect
+
 # Gather credentials from config
 with open('config.json') as f:
     config = json.load(f)
@@ -59,11 +61,12 @@ for subreddit in subreddits:
 
 print(f'\nGathering top {num_posts} posts that satisfy criteria...')
 
-# Get the top posts that have more than 1000 upvotes
+# Get the top posts that have more than 1000 upvotes, created before timestamp, SFW, ending with ?, and in English
 filtered_posts = [post for post in top_posts if post.score > 1000 \
                   and post.created_utc < unix_timestamp \
                     and not post.over_18 \
-                        and '?' in post.title]
+                        and '?' in post.title \
+                            and detect(post.title) == 'en']
 
 
 print(f'\nRetrieving top {k} comments from each post...')
@@ -105,11 +108,11 @@ for post in filtered_posts:
     sentences = sent_tokenize(generated_response)
     
     # Filter out incomplete sentences
-    # complete_sentences = [sentence for sentence in sentences if sentence.endswith('.')]
-    complete_sentences = []
-    for sentence in sentences:
-        if sentence[-1] in string.punctuation:
-            complete_sentences.append(sentence)
+    complete_sentences = [sentence for sentence in sentences if sentence.endswith('.')]
+    # complete_sentences = []
+    # for sentence in sentences:
+    #     if sentence[-1] in string.punctuation:
+    #         complete_sentences.append(sentence)
 
     post_data['gpt'] = ' '.join(complete_sentences)
 
@@ -119,12 +122,14 @@ for post in filtered_posts:
     comments_sorted = sorted(comments, key=lambda comment: comment.score, reverse=True)
 
     for comment in comments_sorted[:k]:
-        comment_data = {
-            'score': comment.score,
-            'body': comment.body
-        }
+        # Check if comment is in english and is not deleted
+        if detect(comment.body) == 'en' and comment.author is not None:
+            comment_data = {
+                'score': comment.score,
+                'body': comment.body
+            }
 
-        post_data['comments'].append(comment_data)
+            post_data['comments'].append(comment_data)
 
     data.append(post_data)
 
