@@ -18,6 +18,7 @@ import seaborn as sns
 from tqdm import tqdm
 
 import pickle
+import os
 
 from tensorly.decomposition import tucker, constrained_parafac
 
@@ -51,7 +52,7 @@ if __name__ == "__main__":
         ten_type = 'text-ten'
 
     ranks = [int(r) for r in input('\nEnter ranks, space separated: ').split()]
-    
+
 # %%
     scores = []
     for rank in ranks:
@@ -98,7 +99,9 @@ if __name__ == "__main__":
                 A, B, C = A.todense(), B.todense(), C.todense()
                 
             # path = input('Enter file name to save reconstruction errors: ')
-            path = f'{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
+            if not os.path.exists('errors'):
+                os.makedirs('errors')
+            path = f'errors/{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
 
             errors = []
             print("Calculating Reconstruction Errors...")
