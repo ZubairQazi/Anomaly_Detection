@@ -99,9 +99,9 @@ if __name__ == "__main__":
                 A, B, C = A.todense(), B.todense(), C.todense()
                 
             # path = input('Enter file name to save reconstruction errors: ')
-            if not os.path.exists('errors'):
-                os.makedirs('errors')
-            path = f'errors/{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
+            if not os.path.exists('tensor_factors'):
+                os.makedirs('tensor_factors')
+            path = f'tensor_factors/{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
 
             errors = []
             print("Calculating Reconstruction Errors...")
