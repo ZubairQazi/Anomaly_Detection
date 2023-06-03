@@ -74,7 +74,9 @@ if __name__ == "__main__":
             decomp_alg = 'tkd' if decomp == '1' else 'cpd'    
 
             if load.lower()[0] == 'n':
-                path = f'{dataset}_{decomp_alg}_r{rank}.sav'
+                if not os.path.exists('decomposition_results/factors'):
+                    os.makedirs('decomposition_results/factors')
+                path = f'decomposition_results/factors/{dataset}_{decomp_alg}_r{rank}.sav'
                 # path = input('Enter file name to save factors as: ')
                 if decomp == '1':
                     print('Tucker Decomposition...')
@@ -97,11 +99,11 @@ if __name__ == "__main__":
                 A, B, C, = np.array(A), np.array(B), np.array(C)
             elif decomp == '2':
                 A, B, C = A.todense(), B.todense(), C.todense()
-                
+
             # path = input('Enter file name to save reconstruction errors: ')
-            if not os.path.exists('tensor_factors'):
-                os.makedirs('tensor_factors')
-            path = f'tensor_factors/{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
+            if not os.path.exists('decomposition_results/errors'):
+                os.makedirs('decomposition_results/errors')
+            path = f'decomposition_results/errors/{dataset}_{ten_type}_{decomp_alg}_r{rank}_errors.sav'
 
             errors = []
             print("Calculating Reconstruction Errors...")
