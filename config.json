@@ -1,8 +1,0 @@
-{
-    "reddit_client_id": "Your Reddit Client ID",
-    "reddit_client_secret": "Your Reddit Client Secret",
-    "reddit_user_agent": "Your Reddit User Agent",
-    "reddit_username": "Your Reddit UserName",
-    "reddit_password": "Your Reddit Password",
-    "openai_api_key" : "Your OpenAI API Key"
-}
