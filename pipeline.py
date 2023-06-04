@@ -107,7 +107,9 @@ if __name__ == "__main__":
 
             errors = []
             print("Calculating Reconstruction Errors...")
-            for gs in tqdm(padded_slices):
+            # Assuming a shape of M, N, N or N, N, N where dimensions 2 and 3 represent each slice
+            for i in tqdm(range(tensor.shape[0])):
+                gs = tensor[i, :, :].todense()
                 if decomp == '1':
                     # projection
                     gs_p = ((A.T @ gs) @ B)
@@ -126,6 +128,8 @@ if __name__ == "__main__":
                 # relative error
                 errors.append(d / np.linalg.norm(gs, ord='fro'))
 
+            # Replace NaN values with 0
+            np.nan_to_num(errors, copy=False, nan=0)
             errors = np.array(errors).reshape(-1, 1)
 
             saved_model = open(path, 'wb')
