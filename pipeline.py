@@ -169,5 +169,3 @@ if __name__ == "__main__":
 # %%
     for name, rank, auc in scores:
         print(f'Model: {name}, Rank: {rank}, AUC score: {auc}')
-
-
