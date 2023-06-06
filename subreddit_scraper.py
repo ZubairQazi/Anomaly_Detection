@@ -66,7 +66,9 @@ filtered_posts = [post for post in top_posts if post.score > 1000 \
                   and post.created_utc < unix_timestamp \
                     and not post.over_18 \
                         and '?' in post.title \
-                            and detect(post.title) == 'en']
+                            and detect(post.title) == 'en' \
+                                and not post.is_deleted \
+                                    and len(post.title) > 1]
 
 
 print(f'\nRetrieving top {k} comments from each post...')
@@ -123,7 +125,7 @@ for post in filtered_posts:
 
     for comment in comments_sorted[:k]:
         # Check if comment is in english and is not deleted
-        if detect(comment.body) == 'en' and comment.author is not None:
+        if detect(comment.body) == 'en' and comment.author is not None and len(comment.body) > 1:
             comment_data = {
                 'score': comment.score,
                 'body': comment.body
