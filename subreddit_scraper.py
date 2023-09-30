@@ -70,6 +70,7 @@ filtered_posts = [post for post in top_posts if post.score > 1000 \
                                 and not post.is_deleted \
                                     and len(post.title) > 1]
 
+print(f'\nFiltered out {len(top_posts) - len(filtered_posts)} posts from {len(top_posts)} original posts')
 
 print(f'\nRetrieving top {k} comments from each post...')
 
