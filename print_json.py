@@ -1,6 +1,8 @@
 import zstandard as zstd
 import json
 
+import numpy as np
+
 import sys
 
 # Get the file name from command line argument
@@ -19,12 +21,18 @@ decompressed_data = zstd.decompress(compressed_data)
 # Load the JSON data
 data = json.loads(decompressed_data)
 
+print('NUMBER OF POSTS:', len(data))
+print()
+
 # Pretty print the content of the posts
 for post in data:
     print('Title:', post['title'])
+    print('Subreddit:', post['subreddit'])
     # print('Score:', post['score'])
+    print('Random Comment:', post['comments'][np.random.randint(0, len(post['comments']))]['body'])
+
     print('GPT:', post['gpt'])
-    # print('Comments:')
+
     # for comment in post['comments']:
     #     print('  Score:', comment['score'])
     #     print('  Body:', comment['body'])
