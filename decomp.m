@@ -33,8 +33,6 @@ sparse_tensor = sptensor(indices, values, permute(tensor_size, [3, 2, 1]));
 % Perform CP decomposition
 rank_cp = input('Enter the CP decomposition rank: ');
 disp('CP decomposition...');
-[c_core, c_factors] = cp_als(sparse_tensor, rank_cp);
-cp_factors_filename = [data_filename, '_cp_factors_rank', num2str(rank_cp), '.mat'];
-cp_core_filename = [data_filename, '_cp_core_rank', num2str(rank_cp), '.mat'];
-save(cp_factors_filename, 'c_factors', '-v7.3');
-save(cp_core_filename, 'c_core', '-v7.3');
+cp_data = cp_als(sparse_tensor, rank_cp);
+cp_factors_filename = [data_filename, 'cp_data', num2str(rank_cp), '.mat'];
+save(cp_factors_filename, 'cp_data', '-v7.3');
