@@ -11,7 +11,7 @@ from tensorly.contrib.sparse import decomposition
 import sparse
 
 
-def load_network(path):
+def load_graph_network(path):
     
     try:
         data = scipy.io.loadmat(path)
@@ -65,7 +65,7 @@ def load_network_menu():
             data_path = 'datasets/ACM.mat'
             dataset = 'acm'
         
-        G, ego_gs, roots, labels = load_network(data_path)
+        G, ego_gs, roots, labels = load_graph_network(data_path)
 
         path = f'{dataset}_data.sav'
 
