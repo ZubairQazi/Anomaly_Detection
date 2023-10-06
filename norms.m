@@ -16,8 +16,10 @@ disp(tensor_size);
 % Convert indices to 1-based indexing
 indices = indices + 1;
 
+vals = ones(size(indices, 1), 1);
+
 % Create the sparse tensor using sptensor
-sparse_tensor = sptensor(indices, values, tensor_size);
+sparse_tensor = sptensor(indices, vals(:), tensor_size);
 
 % Ask the user for the location of the decomposition files
 data = input('Enter the path to the file containing core data: ', 's');
@@ -26,29 +28,28 @@ data = input('Enter the path to the file containing core data: ', 's');
 load(data)
 
 N = ndims(sparse_tensor);
-% U = cp_data.U;
-U = c_core.U;
-maxiters = 100;
-dimorder = [3, 2, 1];
-printitn = 1;
-fitchangetol = 1e-4;
+U = cp_data.U;
+% U = c_core.U;
 
 % Initialize an array to store the fits of each slice
 slice_fits = zeros(tensor_size(1), 1);
 
 % Loop over each slice and calculate the fit
-for k = 1:tensor_size(1)
+for i = 1:tensor_size(1)
     % Extract the k-th slice from the tensor
-    slice_tensor = sparse_tensor(:, :, k);
+    slice_tensor = sparse_tensor(i, :, :);
     
-    % Reconstruct the k-th slice using the factor matrices A, B, and C
-    reconstructed_slice = U{1} * diag(c_core.lambda) * diag(U{3}(k, :)) * U{2}';
-    
-    % Calculate the fit of the k-th slice (e.g., Frobenius norm)
-    fit = norm(double(slice_tensor) - reconstructed_slice, 'fro') / norm(slice_tensor, 'fro');
+    %% Reconstruct the k-th slice using the factor matrices A, B, and C
+    reconstructed_slice = U{3} * diag(cp_data.lambda) * diag(U{1}(i, :)) * U{2}';
 
-    disp("Fit for slice %d: %d", k, fit)
+    % Calculate the fit of the k-th slice (e.g., Frobenius norm)
+    diff = slice_tensor - sptensor(reconstructed_slice);
+    fit = norm(diff);
+
+    fprintf("Fit for slice %d: %f\n", i, fit)
     
     % Store the fit of the k-th slice
-    slice_fits(k) = fit;
+    slice_fits(i) = fit;
 end
+
+save("tensor_data/reconstruction_errors.mat", 'slice_fits', '-v7.3');
