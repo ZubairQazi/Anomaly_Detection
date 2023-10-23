@@ -15,8 +15,8 @@ tensor_size = data.size;
 disp('Tensor size:');
 disp(tensor_size);
 
-% Convert indices to 1-based indexing
-indices = indices + 1;
+% % Convert indices to 1-based indexing
+% indices = indices + 1;
 
 % Create the sparse tensor using sptensor
 sparse_tensor = sptensor(indices, values, permute(tensor_size, [3, 2, 1]));
@@ -34,5 +34,5 @@ sparse_tensor = sptensor(indices, values, permute(tensor_size, [3, 2, 1]));
 rank_cp = input('Enter the CP decomposition rank: ');
 disp('CP decomposition...');
 cp_data = cp_als(sparse_tensor, rank_cp);
-cp_factors_filename = [data_filename, 'cp_data', num2str(rank_cp), '.mat'];
+cp_factors_filename = [data_filename, '_cp_data_rank', num2str(rank_cp), '.mat'];
 save(cp_factors_filename, 'cp_data', '-v7.3');

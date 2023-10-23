@@ -10,6 +10,7 @@ import torch
 import numpy as np
 
 from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 import sparse
 
 import pandas as pd
@@ -18,19 +19,33 @@ import re
 from scipy.io import savemat
 import os
 
-def load_text_dataset_from_csv(path, subset_size=None):
+
+def load_text_dataset_from_csv(path, subset_size=None, train_size=None):
     data = pd.read_csv(path)
     
     dataset = data.to_numpy()
 
     data, labels = dataset[:, 0], dataset[:, 1]
-    data, labels = shuffle(data, labels)
+    data, labels = shuffle(data, labels, random_state=10)
+
+    total_data, total_labels = data, labels
+    train_data = test_data = train_labels = test_labels = None
 
     if subset_size:
-        data, labels = data[:subset_size], labels[:subset_size]
+        print("Grabbing dataset of size:", subset_size)
+        data, labels = data[:len(data)*subset_size], labels[:len(labels)*subset_size]
 
-    # Count the occurrences of all terms in the dataset
-    term_counts = Counter()
+    if train_size:
+        train_data, test_data, train_labels, test_labels = train_test_split(data, labels, train_size=train_size)
+        
+        # Remove GPT data from training data
+        data = [x for x, label in zip(train_data, train_labels) if label != 1]
+        labels = [0] * len(data)
+
+        # Add unused GPT data from training set to test set
+        gpt_data = [x for x, label in zip(train_data, train_labels) if label == 1]
+        test_data = np.append(test_data, gpt_data)
+        test_labels = np.append(test_labels, [1] * len(gpt_data))
 
     # Initialize an empty dictionary to store term indices
     term_indices = {}
@@ -49,7 +64,7 @@ def load_text_dataset_from_csv(path, subset_size=None):
     # Get the number of unique terms
     num_unique_terms = len(term_indices)
 
-    return data, labels, num_unique_terms, term_indices
+    return (total_data, total_labels), (data, labels), (test_data, test_labels), num_unique_terms, term_indices
 
 
 def load_text_dataset_from_json(path):
@@ -87,7 +102,7 @@ def load_text_dataset_from_json(path):
         labels.append(1)
 
     # Shuffle the data and labels together
-    data, labels = shuffle(data, labels)
+    data, labels = shuffle(data, labels, random_state=10)
 
     # # Print the shuffled data and labels
     # for d, label in zip(data, labels):
@@ -153,19 +168,48 @@ def build_text_tensor(window_size=5):
     return tensor, padded_slices, labels, 'reddit'
 
 
-def get_text_tensor_indices(window_size=5):
+def get_text_tensor_indices(window_size=5, use_gpt=True):
 
     option = input('Load from: \n\t (1) CSV\n\t (2) JSON\n')
 
     if option == '1':
-        data, labels, total_num_terms, term_indices = load_text_dataset_from_csv(input('Enter CSV data path: '), subset_size=100)
+        (total_data, total_labels), (data, labels), (test_data, test_labels), total_num_terms, term_indices = load_text_dataset_from_csv(input('Enter CSV data path: '), train_size=0.66)
     elif option == '2':
         # Get data and labels from load_dataset()
         data, labels, total_num_terms, term_indices = load_text_dataset_from_json(input('Enter JSON data path: '))
 
+    # If false, do not use gpt data to build tensor
+    if use_gpt == False:
+        # Gather slice data for GPT responses
+        test_tensor_indices = []
+        test_tensor_size = (len(test_data), total_num_terms, total_num_terms)
+
+        print('Gathering co-occurance indices for test data...')
+        for doc_idx, document in enumerate(test_data):
+
+            try:
+                terms = re.findall(r"(\w+|[^\w\s])", document)
+            except:
+                print(f'Failed to process document #{doc_idx}')
+                continue
+
+            # Loop over each of the terms
+            for term_idx, term1 in enumerate(terms):
+
+                # Loop over terms within window from i
+                for term2 in terms[term_idx + 1: term_idx + window_size]:
+
+                    # Append indices of co-occurrence terms
+                    if all(term in term_indices for term in (term1, term2)):
+                        test_tensor_indices.append([doc_idx + 1, term_indices[term1] + 1, term_indices[term2] + 1])
+                        test_tensor_indices.append([doc_idx + 1, term_indices[term2] + 1, term_indices[term1] + 1])
+        
+        print('Test Tensor Size:', test_tensor_size)
+        savemat(f'tensor_data/reddit_test_tensor_data.mat', {'indices': np.array(test_tensor_indices), 'size': test_tensor_size})
+
+
     indices = []
     tensor_size = (len(data), total_num_terms, total_num_terms)
-
 
     # Loop over each document in the data
     for doc_idx, document in enumerate(data):
@@ -183,10 +227,10 @@ def get_text_tensor_indices(window_size=5):
             for term2 in terms[term_idx + 1: term_idx + window_size]:
 
                 # Append indices of co-occurrence terms
-                indices.append([doc_idx, term_indices[term1], term_indices[term2]])
-                indices.append([doc_idx, term_indices[term2], term_indices[term1]])
+                indices.append([doc_idx + 1, term_indices[term1] + 1, term_indices[term2] + 1])
+                indices.append([doc_idx + 1, term_indices[term2] + 1, term_indices[term1] + 1])
 
-    return indices, tensor_size, 'reddit'
+    return (data, labels), indices, tensor_size, 'reddit', term_indices
 
 if __name__ == '__main__':
 
@@ -196,15 +240,19 @@ if __name__ == '__main__':
     # print('Slices Shape:', f'({len(slices)}, {slices[0].shape[0]}, {slices[0].shape[1]})')
     # print('Labels Shape:', len(labels))
 
-    indices, tensor_size, dataset = get_text_tensor_indices()
+    dataset, indices, tensor_size, dataset_name, _ = get_text_tensor_indices(use_gpt=False)
 
     i = np.array(indices)
     values = np.ones(len(indices))
+
+    print("Tensor Size:", tensor_size)
+
+    print('Original Dataset Size:', len(dataset[0]))
 
     # Create the directory if it doesn't exist
     if not os.path.exists('tensor_data/'):
         os.makedirs('tensor_data/')
 
     # Save indices and values to text files
-    savemat(f'tensor_data/{dataset}_tensor_data.mat', {'indices': i, 'values':values, 'size':tensor_size})
+    savemat(f'tensor_data/{dataset}_tensor_data_nogpt.mat', {'indices': i, 'values':values, 'size':tensor_size})
 
