@@ -9,7 +9,7 @@ data = load(data_path);
 
 % Extract the data and display tensor size
 indices = data.indices;
-values = double(data.values(:)); % Column vector
+% values = double(data.values(:)); % Column vector
 tensor_size = data.size;
 
 disp('Tensor size:');
@@ -18,8 +18,10 @@ disp(tensor_size);
 % % Convert indices to 1-based indexing
 % indices = indices + 1;
 
+vals = ones(size(indices, 1), 1);
+
 % Create the sparse tensor using sptensor
-sparse_tensor = sptensor(indices, values, permute(tensor_size, [3, 2, 1]));
+sparse_tensor = sptensor(indices, vals(:), permute(tensor_size, [3, 2, 1]));
 
 % % Perform Tucker decomposition
 % rank_tucker = input('Enter the Tucker decomposition rank: ');

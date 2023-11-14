@@ -19,6 +19,7 @@ import re
 from scipy.io import savemat
 import os
 
+import time
 
 def load_text_dataset_from_csv(path, subset_size=None, train_size=None):
     data = pd.read_csv(path)
@@ -173,14 +174,14 @@ def get_text_tensor_indices(window_size=5, use_gpt=True):
     option = input('Load from: \n\t (1) CSV\n\t (2) JSON\n')
 
     if option == '1':
-        (total_data, total_labels), (data, labels), (test_data, test_labels), total_num_terms, term_indices = load_text_dataset_from_csv(input('Enter CSV data path: '), train_size=0.66)
+        (total_data, total_labels), (data, labels), (test_data, test_labels), total_num_terms, term_indices = load_text_dataset_from_csv(input('Enter CSV data path: '), train_size=0.9)
     elif option == '2':
         # Get data and labels from load_dataset()
         data, labels, total_num_terms, term_indices = load_text_dataset_from_json(input('Enter JSON data path: '))
 
-    # If false, do not use gpt data to build tensor
+    # If false, do not use gpt data to build training tensor
     if use_gpt == False:
-        # Gather slice data for GPT responses
+        # Gather slice data for test responses
         test_tensor_indices = []
         test_tensor_size = (len(test_data), total_num_terms, total_num_terms)
 
@@ -205,6 +206,9 @@ def get_text_tensor_indices(window_size=5, use_gpt=True):
                         test_tensor_indices.append([doc_idx + 1, term_indices[term2] + 1, term_indices[term1] + 1])
         
         print('Test Tensor Size:', test_tensor_size)
+        # Create the directory if it doesn't exist
+        if not os.path.exists('tensor_data/'):
+            os.makedirs('tensor_data/')
         savemat(f'tensor_data/reddit_test_tensor_data.mat', {'indices': np.array(test_tensor_indices), 'size': test_tensor_size})
 
 
@@ -243,16 +247,14 @@ if __name__ == '__main__':
     dataset, indices, tensor_size, dataset_name, _ = get_text_tensor_indices(use_gpt=False)
 
     i = np.array(indices)
-    values = np.ones(len(indices))
+    # values = np.ones(len(indices))
 
     print("Tensor Size:", tensor_size)
-
-    print('Original Dataset Size:', len(dataset[0]))
 
     # Create the directory if it doesn't exist
     if not os.path.exists('tensor_data/'):
         os.makedirs('tensor_data/')
 
     # Save indices and values to text files
-    savemat(f'tensor_data/{dataset}_tensor_data_nogpt.mat', {'indices': i, 'values':values, 'size':tensor_size})
+    savemat(f'tensor_data/{dataset_name}_tensor_data_nogpt.mat', {'indices': i, 'size':tensor_size})
 

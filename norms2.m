@@ -31,6 +31,7 @@ U = cp_data.U;
 % Initialize an array to store the fits of each slice
 slice_fits = zeros(slice_tensor_size(1), 1);
 
+disp('Calculating reconstruction error for each test document...')
 % Loop over each slice and calculate the fit
 for i = 1:slice_tensor_size(1)
     % Get the co-occurrence matrix for the current slice
@@ -45,8 +46,9 @@ for i = 1:slice_tensor_size(1)
     part2 = sparse(part1*U{3});  
     part3 = sparse(part2* pinv(U{3}));  
     
-    reconstruction = sparse(U{2} * part3);  
-    error = norm(reconstruction - co_occurrence_matrix, 'fro');
+    reconstruction = sparse(U{2} * part3);
+
+    error = norm(sparse(reconstruction) - Xs, 'fro');
 
     fprintf("Error for slice %d: %f\n", i, error)
 
