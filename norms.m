@@ -1,55 +1,58 @@
 addpath(fullfile('~', 'tensor_toolbox'));
 
-data_path = input('Enter the path to the file containing tensor data: ', 's');
+slice_path = input('Enter the path to the file containing test data: ', 's');
 
 % Load data from the .mat file
-data = load(data_path);
+slice_data = load(slice_path);
 
 % Extract the data and display tensor size
-indices = data.indices;
-values = double(data.values(:)); % Column vector
-tensor_size = data.size;
+slice_indices = double(slice_data.indices);
+slice_tensor_size = slice_data.size;
 
-disp('Tensor size:');
-disp(tensor_size);
+disp('Test Tensor size:');
+disp(slice_tensor_size);
+
+slice_vals = ones(length(slice_indices), 1);
 
 % Convert indices to 1-based indexing
-indices = indices + 1;
-
-vals = ones(size(indices, 1), 1);
+% slice_indices = slice_indices + 1;
 
 % Create the sparse tensor using sptensor
-sparse_tensor = sptensor(indices, vals(:), tensor_size);
+test_tensor = sptensor(slice_indices, slice_vals(:), slice_tensor_size);
 
 % Ask the user for the location of the decomposition files
-data = input('Enter the path to the file containing core data: ', 's');
+data = input('Enter the path to the file containing factor data: ', 's');
 
 % Load the precomputed decomposition factors and core tensor
 load(data)
 
-N = ndims(sparse_tensor);
 U = cp_data.U;
-% U = c_core.U;
 
 % Initialize an array to store the fits of each slice
-slice_fits = zeros(tensor_size(1), 1);
+slice_fits = zeros(slice_tensor_size(1), 1);
 
+disp('Calculating reconstruction error for each test document...')
 % Loop over each slice and calculate the fit
-for i = 1:tensor_size(1)
-    % Extract the k-th slice from the tensor
-    slice_tensor = sparse_tensor(i, :, :);
+for i = 1:slice_tensor_size(1)
+    % Get the co-occurrence matrix for the current slice
+    co_occurrence_matrix = test_tensor(i, :, :);
     
-    %% Reconstruct the k-th slice using the factor matrices A, B, and C
-    reconstructed_slice = U{3} * diag(cp_data.lambda) * diag(U{1}(i, :)) * U{2}';
+    % Calculate the reconstruction gs_r
+    B = U{2};
 
-    % Calculate the fit of the k-th slice (e.g., Frobenius norm)
-    diff = slice_tensor - sptensor(reconstructed_slice);
-    fit = norm(diff);
+    Xs = spmatrix(co_occurrence_matrix);
 
-    fprintf("Fit for slice %d: %f\n", i, fit)
+    part1 = sparse(pinv(B) * Xs);  
+    part2 = sparse(part1*U{3});  
+    part3 = sparse(part2* pinv(U{3}));  
     
-    % Store the fit of the k-th slice
-    slice_fits(i) = fit;
+    reconstruction = sparse(U{2} * part3);
+
+    error = norm(sparse(reconstruction) - Xs, 'fro');
+
+    fprintf("Error for slice %d: %f\n", i, error)
+
+    slice_fits(i) = error;
 end
 
-save("tensor_data/reconstruction_errors.mat", 'slice_fits', '-v7.3');
+save("tensor_data/reconstruction_errors_nogpt.mat", 'slice_fits', '-v7.3');
